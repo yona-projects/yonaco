@@ -42,15 +42,21 @@ Phase 0/1 항목은 이미 실제로 부딪혀서 **클라이언트 쪽 우회 �
 
 ---
 
-## 3. [P0] 이슈 코멘트 전체 이력 조회 API 부재 — Phase 1(이미 영향받음)/Phase 2 공통 패턴
+## 3. [해결됨] 이슈 코멘트 전체 이력 조회 API 부재 — Phase 1(이미 영향받음)/Phase 2 공통 패턴
 
-### 현재 상태
+### 해결 상태
+서버에 `GET /api/v1/projects/{owner}/{project}/issues/{number}/comments`가 추가됐다
+(`CommentController.getIssueComments()` + `IssueRestApiController.getComments()` 어댑터).
+yonaco 클라이언트도 `getIssueComments()`를 추가해 이슈 상세 패널이 세션 로컬 코멘트가 아니라
+서버의 전체 코멘트 이력을 보여주도록 이미 갱신했다. 아래는 해결 전 기록.
+
+### 현재 상태(해결 전 기록)
 - `IssueRestApiController.kt`의 `POST /{number}/comments`도 위와 동일하게 생성만 가능하고 GET이 없다(`CommentController.kt`에 create/update/delete만 존재).
 
 ### 왜 문제인가
 이미 Phase 1(0.1.2)에서 이 문제로 "이번 세션에 작성한 코멘트만 표시" 하는 제약을 안고 구현했다(계획서 리스크 8번). Phase 2의 PR 코멘트도 똑같은 구조라 같이 요청하는 게 효율적이다.
 
-### 요청 사항
+### 요청 사항(해결 전 기록)
 - `GET /api/v1/projects/{owner}/{project}/issues/{number}/comments`
 
 ---
@@ -132,7 +138,7 @@ return "redirect:/${owner}/${projectName}/..."
 |---|---|---|---|---|
 | 1 | 프로젝트 목록/ID→owner·name 조회 API | P1 | Phase 1 | 이미 우회 구현함(수동 등록) |
 | 2 | PR 코멘트/라인 리뷰 코멘트 GET API | P0 | Phase 2 | 착수 전 |
-| 3 | 이슈 코멘트 GET API | P0 | Phase 1(이미 제약 있음)/2 | 부분 우회(이번 세션 작성분만 표시) |
+| 3 | 이슈 코멘트 GET API | P0 | Phase 1(이미 제약 있음)/2 | **해결됨** — 서버 API + yonaco 클라이언트 모두 반영 |
 | 4 | (참고) 커밋 코멘트는 이미 완전함 | - | - | - |
 | 5 | 브랜치 목록 JSON API | P0 | Phase 3 | 착수 전 |
 | 6 | 온라인 커밋 실패 신호 부재 | P1 | Phase 3 | 착수 전 |
