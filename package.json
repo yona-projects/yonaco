@@ -60,6 +60,10 @@
       {
         "command": "yona.project.add",
         "title": "Yona: 프로젝트 등록"
+      },
+      {
+        "command": "yona.issue.createFromLine",
+        "title": "Yona: 이 라인으로 이슈 생성"
       }
     ],
     "menus": {
@@ -68,6 +72,12 @@
           "command": "yona.myIssues.refresh",
           "when": "view == yona.myIssues",
           "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "yona.issue.createFromLine",
+          "group": "yona"
         }
       ]
     },

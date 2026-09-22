@@ -35,7 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Yonaco
 
   const issueTreeProvider = new IssueTreeProvider(getClient, projectRegistry);
   context.subscriptions.push(vscode.window.registerTreeDataProvider('yona.myIssues', issueTreeProvider));
-  const issuePanels = registerIssueCommands(context, issueTreeProvider, getClient);
+  const issuePanels = registerIssueCommands(context, issueTreeProvider, getClient, projectRegistry);
   registerProjectCommands(context, projectRegistry, issueTreeProvider);
 
   registerServerCommands(context, serverRegistry, tokenStore, statusBarItem, undefined, () =>

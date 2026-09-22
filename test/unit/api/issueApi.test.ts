@@ -3,6 +3,7 @@ import { ApiClient } from '../../../src/api/client';
 import {
   addIssueComment,
   closeIssue,
+  createIssue,
   getIssue,
   getMyAssignedIssues,
   getProjectIssues,
@@ -107,6 +108,28 @@ describe('getIssue', () => {
     assert.strictEqual(capturedUrl, 'https://yona.example.com/api/v1/projects/owner1/proj1/issues/5');
     assert.strictEqual(issue.title, '상세이슈');
     assert.strictEqual(issue.body, '본문');
+  });
+});
+
+describe('createIssue', () => {
+  it('POST /api/v1/projects/{owner}/{project}/issues를 호출하고 생성된 이슈를 반환한다', async () => {
+    let capturedUrl: string | undefined;
+    let capturedMethod: string | undefined;
+    let capturedBody: unknown;
+    const fetchFn = async (url: string, init?: RequestInit) => {
+      capturedUrl = url;
+      capturedMethod = init?.method;
+      capturedBody = init?.body ? JSON.parse(init.body as string) : undefined;
+      return fakeFetchReturning(fakeIssue({ id: 10, number: 10, title: '새 이슈', body: 'src/a.ts:3' }))();
+    };
+    const client = new ApiClient('https://yona.example.com', 'token', fetchFn);
+
+    const issue = await createIssue(client, 'owner1', 'proj1', '새 이슈', 'src/a.ts:3');
+
+    assert.strictEqual(capturedUrl, 'https://yona.example.com/api/v1/projects/owner1/proj1/issues');
+    assert.strictEqual(capturedMethod, 'POST');
+    assert.deepStrictEqual(capturedBody, { title: '새 이슈', body: 'src/a.ts:3' });
+    assert.strictEqual(issue.title, '새 이슈');
   });
 });
 

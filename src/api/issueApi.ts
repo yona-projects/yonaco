@@ -24,6 +24,16 @@ export async function getIssue(
   return client.getJSON<Issue>(`/api/v1/projects/${owner}/${project}/issues/${number}`);
 }
 
+export async function createIssue(
+  client: ApiClient,
+  owner: string,
+  project: string,
+  title: string,
+  body?: string,
+): Promise<Issue> {
+  return client.postJSON<Issue>(`/api/v1/projects/${owner}/${project}/issues`, { title, body });
+}
+
 export async function closeIssue(
   client: ApiClient,
   owner: string,
