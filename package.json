@@ -8,10 +8,44 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./dist/extension.js",
-  "contributes": {},
+  "contributes": {
+    "commands": [
+      {
+        "command": "yona.server.add",
+        "title": "Yona: 서버 등록"
+      },
+      {
+        "command": "yona.auth.login",
+        "title": "Yona: 로그인 (토큰)"
+      },
+      {
+        "command": "yona.connectionTest",
+        "title": "Yona: 연결 테스트"
+      }
+    ],
+    "configuration": {
+      "title": "Yona",
+      "properties": {
+        "yona.servers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "등록된 Yona 서버 URL 목록"
+        },
+        "yona.currentServer": {
+          "type": "string",
+          "description": "현재 선택된 Yona 서버 URL"
+        }
+      }
+    }
+  },
   "scripts": {
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
@@ -26,11 +60,12 @@
   "devDependencies": {
     "@types/mocha": "^10.0.7",
     "@types/node": "^20.14.0",
+    "@types/sinon": "^22.0.0",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^7.14.0",
     "@typescript-eslint/parser": "^7.14.0",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
     "esbuild": "^0.21.5",
     "eslint": "^8.57.0",
     "mocha": "^10.4.0",

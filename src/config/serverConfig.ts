@@ -4,7 +4,10 @@ const SERVERS_KEY = 'servers';
 const CURRENT_SERVER_KEY = 'currentServer';
 
 export class ServerRegistry {
-  constructor(private readonly getConfig: () => vscode.WorkspaceConfiguration) {}
+  constructor(
+    private readonly getConfig: () => vscode.WorkspaceConfiguration,
+    private readonly target?: vscode.ConfigurationTarget,
+  ) {}
 
   list(): string[] {
     return this.getConfig().get<string[]>(SERVERS_KEY, []);
@@ -14,13 +17,14 @@ export class ServerRegistry {
     if (this.list().includes(url)) {
       return;
     }
-    await this.getConfig().update(SERVERS_KEY, [...this.list(), url]);
+    await this.getConfig().update(SERVERS_KEY, [...this.list(), url], this.target);
   }
 
   async remove(url: string): Promise<void> {
     await this.getConfig().update(
       SERVERS_KEY,
       this.list().filter((server) => server !== url),
+      this.target,
     );
   }
 
@@ -29,6 +33,6 @@ export class ServerRegistry {
   }
 
   async setCurrent(url: string): Promise<void> {
-    await this.getConfig().update(CURRENT_SERVER_KEY, url);
+    await this.getConfig().update(CURRENT_SERVER_KEY, url, this.target);
   }
 }
