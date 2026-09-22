@@ -18,8 +18,9 @@
     "package": "node esbuild.js --production",
     "lint": "eslint src",
     "pretest": "npm run compile && tsc --noEmit -p ./",
-    "test:unit": "mocha --require ts-node/register --extensions ts test/unit/**/*.test.ts",
-    "test:integration": "vscode-test",
+    "test:unit": "mocha --require ts-node/register --extensions ts \"test/unit/**/*.test.ts\"",
+    "compile-tests": "tsc -p ./",
+    "test:integration": "npm run compile && npm run compile-tests && vscode-test",
     "test": "npm run test:unit"
   },
   "devDependencies": {
