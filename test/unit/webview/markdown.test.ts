@@ -28,4 +28,9 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown('<img src=x onerror="alert(1)">');
     assert.ok(!html.includes('<img'));
   });
+
+  it('한 번의 줄바꿈(Enter 한 번)도 <br>로 표시돼야 한다(GitHub 이슈/코멘트와 동일한 관례)', () => {
+    const html = renderMarkdown('첫줄\n둘째줄');
+    assert.ok(html.includes('첫줄<br>둘째줄'));
+  });
 });

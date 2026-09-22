@@ -316,9 +316,37 @@ export class IssueDetailPanel {
 
     .markdown-body h1,
     .markdown-body h2,
-    .markdown-body h3 {
-      font-size: 1.1em;
+    .markdown-body h3,
+    .markdown-body h4,
+    .markdown-body h5,
+    .markdown-body h6 {
       font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .markdown-body h1 {
+      font-size: 1.8em;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+
+    .markdown-body h2 {
+      font-size: 1.5em;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+
+    .markdown-body h3 {
+      font-size: 1.25em;
+    }
+
+    .markdown-body h4 {
+      font-size: 1.1em;
+    }
+
+    .markdown-body h5,
+    .markdown-body h6 {
+      font-size: 1em;
     }
 
     .comment-form {

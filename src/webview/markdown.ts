@@ -10,5 +10,7 @@ function escapeForMarkdown(text: string): string {
 }
 
 export function renderMarkdown(text: string): string {
-  return parse(escapeForMarkdown(text), { async: false }) as string;
+  // breaks: CommonMark 표준은 한 번의 줄바꿈을 그냥 공백으로 취급해 여러 줄로 쓴 본문이 한
+  // 줄로 붙어버린다 — GitHub 이슈/코멘트처럼 Enter 한 번도 <br>로 보이게 한다.
+  return parse(escapeForMarkdown(text), { async: false, breaks: true }) as string;
 }
