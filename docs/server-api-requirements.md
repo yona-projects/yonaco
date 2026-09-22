@@ -1,12 +1,30 @@
-# Yona 서버 API 요청사항 (yonaco Phase 2~4 대상)
+# Yona 서버 API 요청사항 (yonaco Phase 0~4 대상)
 
-`yonaco`(VS Code Extension) Phase 2~4를 구현하기 위해 `../yona` 서버 코드를 직접 확인한 결과, 클라이언트 구현만으로는 해결할 수 없는 서버 측 API 공백/결함을 정리한 문서다. 각 항목은 실제 소스 파일:라인을 근거로 확인했으며, "구현 가능"으로 분류된 나머지 기능은 이 문서에 포함하지 않는다(별도 클라이언트 구현 계획서 참고).
+`yonaco`(VS Code Extension) Phase 0~4를 구현하면서 `../yona` 서버 코드를 직접 확인한 결과, 클라이언트 구현만으로는 해결할 수 없는 서버 측 API 공백/결함을 정리한 문서다. 각 항목은 실제 소스 파일:라인을 근거로 확인했으며, "구현 가능"으로 분류된 나머지 기능은 이 문서에 포함하지 않는다(별도 클라이언트 구현 계획서 참고).
+
+Phase 0/1 항목은 이미 실제로 부딪혀서 **클라이언트 쪽 우회 설계로 구현을 마친 것들**이고, Phase 2~4 항목은 아직 착수 전 사전 조사 단계에서 발견한 것들이다. 우회했다고 해서 요청 우선순위가 낮은 건 아니다 — 서버 API가 채워지면 우회 설계(수동 등록 등)를 걷어내고 더 나은 사용자 경험으로 바꿀 수 있다.
 
 우선순위는 **P0(없으면 해당 기능을 아예 못 만듦) / P1(만들 수는 있지만 사용성이 크게 떨어짐) / P2(개선하면 좋음)**로 표기한다.
 
 ---
 
-## 1. [P0] PR 코멘트/리뷰 스레드 전체 이력 조회 API 부재 — Phase 2
+## 1. [P1, 이미 우회 구현함] 사용자 소속 프로젝트 목록 / 프로젝트ID→owner·name 조회 API 부재 — Phase 1
+
+### 현재 상태
+- `GET /api/v1/user/issues/status`(계정 전체 "내 이슈")가 주는 각 이슈에는 `projectId`(숫자 PK)만 있고 `owner`/프로젝트명이 없다.
+- `ProjectRestApiController.kt`(`/api/v1/projects`)에는 `GET /{owner}`(특정 owner 밑 프로젝트 목록)와 `GET /{owner}/{project}`(단건) 두 엔드포인트뿐이다. **"owner를 모를 때 숫자 ID로 프로젝트를 찾는" 엔드포인트도, "로그인 사용자가 접근 가능한 프로젝트 전체를 나열하는" 엔드포인트도 없다.**
+- 서버 내부에 `projectRepository.findByOwner(loginUser.loginId)`(`IssueViewController.kt:733,739`)가 있긴 하지만 이건 **본인이 owner인 프로젝트만** 찾고(멤버로 참여 중인 남의/조직 프로젝트는 제외), 게다가 HTML 사이드바 렌더링에만 쓰이는 내부 함수라 API로 노출되지 않는다.
+
+### 왜 문제였나 (Phase 1에서 실제로 겪음)
+0.1.1 구현 중 "내 이슈"를 프로젝트별로 그룹핑해서 보여주려 했는데, `projectId`만으로는 코멘트 작성 등에 필요한 `owner/project` URL을 만들 수 없었다. 결국 **사용자가 프로젝트를 "owner/name" 형식으로 직접 등록**하게 하는 `ProjectRegistry`로 우회했다(`yona.project.add` 커맨드). 동작은 하지만, 사용자가 자기 프로젝트 목록을 미리 다 알고 손으로 입력해야 하는 번거로움이 남아있다.
+
+### 요청 사항
+- `GET /api/v1/user/status` 또는 `/api/v1/user/issues/status`의 이슈 항목에 `projectOwner`/`projectName`(또는 owner/name을 포함하는 `project` 서브객체)을 추가 — 가장 간단한 해법.
+- (대안/추가) `GET /api/v1/user/projects` 같은 "로그인 사용자가 접근 가능한 프로젝트 전체 목록"(본인 소유 + 멤버로 속한 프로젝트 모두) 계정 수준 엔드포인트. 이게 있으면 `yona.project.add` 수동 등록 없이 사용자의 프로젝트를 자동으로 나열해 선택하게 할 수 있다.
+
+---
+
+## 2. [P0] PR 코멘트/리뷰 스레드 전체 이력 조회 API 부재 — Phase 2 (착수 전)
 
 ### 현재 상태
 - `PullRequestApiController.kt`(`/api/v1/projects/{owner}/{project}/pull-requests/{number}/comments`)는 **`POST`만 있고 `GET`이 없다**. 작성 시 응답으로 방금 만든 코멘트 하나(`PullRequestCommentResponse`)만 돌아온다.
@@ -20,11 +38,11 @@
 ### 요청 사항
 - `GET /api/v1/projects/{owner}/{project}/pull-requests/{number}/comments` — PR 전체 코멘트 목록(현재 POST 응답과 동일한 `PullRequestCommentResponse[]`)
 - `GET /api/v1/projects/{owner}/{project}/pull-requests/{number}/review-comments`(또는 유사한 이름) — 해당 PR의 라인/블록 리뷰 코멘트 스레드 전체를 커밋ID/코드범위(`codeRange`)와 함께 반환. `CommentThread`/`CodeCommentThread` 도메인 모델과 `ReviewCommentResponse` DTO를 그대로 재사용할 수 있어 보임.
-- 참고 패턴: 아래 3번 항목의 커밋 코멘트(`/api/vcs/.../commit/{id}/comments`)는 이미 GET/POST/DELETE 전체 CRUD가 있다 — 그 구현을 그대로 PR 코멘트에도 옮겨오면 될 것으로 보인다.
+- 참고 패턴: 아래 4번 항목의 커밋 코멘트(`/api/vcs/.../commit/{id}/comments`)는 이미 GET/POST/DELETE 전체 CRUD가 있다 — 그 구현을 그대로 PR 코멘트에도 옮겨오면 될 것으로 보인다.
 
 ---
 
-## 2. [P0] 이슈 코멘트 전체 이력 조회 API 부재 — Phase 1(이미 영향받음)/Phase 2 공통 패턴
+## 3. [P0] 이슈 코멘트 전체 이력 조회 API 부재 — Phase 1(이미 영향받음)/Phase 2 공통 패턴
 
 ### 현재 상태
 - `IssueRestApiController.kt`의 `POST /{number}/comments`도 위와 동일하게 생성만 가능하고 GET이 없다(`CommentController.kt`에 create/update/delete만 존재).
@@ -37,14 +55,14 @@
 
 ---
 
-## 3. [정보/패턴 참고] 커밋 코멘트는 이미 완전한 CRUD를 갖추고 있음
+## 4. [정보/패턴 참고] 커밋 코멘트는 이미 완전한 CRUD를 갖추고 있음
 
 ### 현재 상태 (요청 아님 — 참고용)
-`CodeHistoryController.kt`의 `/api/vcs/{owner}/{project}/commit/{commitId}/comments`는 `POST`(생성)/`GET`(목록 조회)/`DELETE`(삭제)를 모두 갖추고 있고, `path`/`line`/`side` 필드로 **커밋의 특정 라인에 코멘트를 달 수 있다.** 위 1·2번 항목을 구현할 때 이 컨트롤러를 그대로 참고 패턴으로 쓰면 될 것 같다.
+`CodeHistoryController.kt`의 `/api/vcs/{owner}/{project}/commit/{commitId}/comments`는 `POST`(생성)/`GET`(목록 조회)/`DELETE`(삭제)를 모두 갖추고 있고, `path`/`line`/`side` 필드로 **커밋의 특정 라인에 코멘트를 달 수 있다.** 위 2·3번 항목을 구현할 때 이 컨트롤러를 그대로 참고 패턴으로 쓰면 될 것 같다.
 
 ---
 
-## 4. [P0] 브랜치 목록 JSON API 부재 — Phase 3
+## 5. [P0] 브랜치 목록 JSON API 부재 — Phase 3
 
 ### 현재 상태
 - `repository.getBranches()`를 호출하는 유일한 컨트롤러 메서드는 `BranchViewController.kt`의 `GET /{owner}/{projectName}/branches`이며, `@Controller`(JSON이 아니라 Thymeleaf HTML 풀페이지 렌더링)이다.
@@ -60,7 +78,7 @@
 
 ---
 
-## 5. [P1] 온라인 커밋 실패 시 에러 신호 없음 — Phase 3
+## 6. [P1] 온라인 커밋 실패 시 에러 신호 없음 — Phase 3
 
 ### 현재 상태
 `BoardViewController.kt`의 `createPost()`(코드브라우저 "새 파일"/"편집" 처리 경로, `request.path`가 채워진 경우)는 커밋 실패 시:
@@ -84,7 +102,7 @@ return "redirect:/${owner}/${projectName}/..."
 
 ---
 
-## 6. [P1] 알림 읽음 처리 API 부재 — Phase 4
+## 7. [P1] 알림 읽음 처리 API 부재 — Phase 4
 
 ### 현재 상태
 `NotificationController.kt`에는 `GET /api/notifications`만 있다. 읽음/안읽음 필드 자체가 응답(`NotificationResponse`)에 없고, 읽음으로 표시하는 엔드포인트도 없다.
@@ -98,7 +116,7 @@ return "redirect:/${owner}/${projectName}/..."
 
 ---
 
-## 7. [P2] 알림 API의 인증 방식이 다른 v1 API와 다름 — Phase 4 (문서화 성격, 서버 동작 변경 요청은 아님)
+## 8. [P2] 알림 API의 인증 방식이 다른 v1 API와 다름 — Phase 4 (문서화 성격, 서버 동작 변경 요청은 아님)
 
 ### 현재 상태
 `GET /api/notifications`는 `/api/v1/**` 네임스페이스가 아니라서 `ApiTokenAuthenticationFilter`의 스코프 판정을 안 타고 `authenticateLegacy()` 폴백(레거시 전권 토큰)으로만 인증된다. 다른 v1 리소스(이슈/PR 등)는 스코프 토큰으로 되는데 알림만 레거시 토큰이 필요해 사용자 경험이 일관되지 않다.
@@ -110,12 +128,13 @@ return "redirect:/${owner}/${projectName}/..."
 
 ## 요약 표
 
-| # | 항목 | 우선순위 | 영향받는 Phase |
-|---|---|---|---|
-| 1 | PR 코멘트/라인 리뷰 코멘트 GET API | P0 | Phase 2 |
-| 2 | 이슈 코멘트 GET API | P0 | Phase 1(이미 제약 있음)/2 |
-| 3 | (참고) 커밋 코멘트는 이미 완전함 | - | - |
-| 4 | 브랜치 목록 JSON API | P0 | Phase 3 |
-| 5 | 온라인 커밋 실패 신호 부재 | P1 | Phase 3 |
-| 6 | 알림 읽음 처리 API | P1 | Phase 4 |
-| 7 | 알림 인증 방식 불일치 | P2 | Phase 4 |
+| # | 항목 | 우선순위 | 영향받는 Phase | 상태 |
+|---|---|---|---|---|
+| 1 | 프로젝트 목록/ID→owner·name 조회 API | P1 | Phase 1 | 이미 우회 구현함(수동 등록) |
+| 2 | PR 코멘트/라인 리뷰 코멘트 GET API | P0 | Phase 2 | 착수 전 |
+| 3 | 이슈 코멘트 GET API | P0 | Phase 1(이미 제약 있음)/2 | 부분 우회(이번 세션 작성분만 표시) |
+| 4 | (참고) 커밋 코멘트는 이미 완전함 | - | - | - |
+| 5 | 브랜치 목록 JSON API | P0 | Phase 3 | 착수 전 |
+| 6 | 온라인 커밋 실패 신호 부재 | P1 | Phase 3 | 착수 전 |
+| 7 | 알림 읽음 처리 API | P1 | Phase 4 | 착수 전 |
+| 8 | 알림 인증 방식 불일치 | P2 | Phase 4 | 착수 전 |
