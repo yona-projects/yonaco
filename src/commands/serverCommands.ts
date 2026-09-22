@@ -6,7 +6,7 @@ import { ApiError } from '../api/apiError';
 import { createScopedApiClient } from '../api/clientFactory';
 import { refreshServerStatusBarItem } from '../tree/serverStatusBar';
 
-const vscodePrompter: Prompter = {
+export const vscodePrompter: Prompter = {
   async askInput({ prompt, password }) {
     return vscode.window.showInputBox({ prompt, password: password ?? false });
   },

@@ -56,6 +56,10 @@
         "command": "yona.myIssues.refresh",
         "title": "새로고침",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "yona.project.add",
+        "title": "Yona: 프로젝트 등록"
       }
     ],
     "menus": {
@@ -81,6 +85,14 @@
         "yona.currentServer": {
           "type": "string",
           "description": "현재 선택된 Yona 서버 URL"
+        },
+        "yona.projects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "등록된 프로젝트 목록 (\"owner/name\" 형식)"
         }
       }
     }

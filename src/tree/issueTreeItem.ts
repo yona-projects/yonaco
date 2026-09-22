@@ -2,12 +2,14 @@ import { Issue } from '../api/types';
 
 export interface ProjectGroupNode {
   type: 'project';
-  projectId: number;
-  issueCount: number;
+  owner: string;
+  name: string;
 }
 
 export interface IssueNode {
   type: 'issue';
+  owner: string;
+  name: string;
   issue: Issue;
 }
 

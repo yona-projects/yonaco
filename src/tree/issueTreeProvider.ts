@@ -1,16 +1,17 @@
 import * as vscode from 'vscode';
 import { ApiClient } from '../api/client';
-import { getMyAssignedIssues } from '../api/issueApi';
-import { groupIssuesByProject, IssueProjectGroup } from './issueGrouping';
+import { getProjectIssues } from '../api/issueApi';
+import { ProjectRegistry } from '../config/projectConfig';
 import { IssueTreeNode } from './issueTreeItem';
 
 export class IssueTreeProvider implements vscode.TreeDataProvider<IssueTreeNode> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
-  private groups: IssueProjectGroup[] = [];
-
-  constructor(private readonly getClient: () => Promise<ApiClient | undefined>) {}
+  constructor(
+    private readonly getClient: () => Promise<ApiClient | undefined>,
+    private readonly projectRegistry: ProjectRegistry,
+  ) {}
 
   refresh(): void {
     this.onDidChangeTreeDataEmitter.fire();
@@ -20,21 +21,22 @@ export class IssueTreeProvider implements vscode.TreeDataProvider<IssueTreeNode>
     if (!element) {
       const client = await this.getClient();
       if (!client) {
-        this.groups = [];
         return [];
       }
-      const issues = await getMyAssignedIssues(client);
-      this.groups = groupIssuesByProject(issues);
-      return this.groups.map((group) => ({
+      return this.projectRegistry.list().map((project) => ({
         type: 'project',
-        projectId: group.projectId,
-        issueCount: group.issues.length,
+        owner: project.owner,
+        name: project.name,
       }));
     }
 
     if (element.type === 'project') {
-      const group = this.groups.find((g) => g.projectId === element.projectId);
-      return (group?.issues ?? []).map((issue) => ({ type: 'issue', issue }));
+      const client = await this.getClient();
+      if (!client) {
+        return [];
+      }
+      const issues = await getProjectIssues(client, element.owner, element.name);
+      return issues.map((issue) => ({ type: 'issue', owner: element.owner, name: element.name, issue }));
     }
 
     return [];
@@ -42,9 +44,7 @@ export class IssueTreeProvider implements vscode.TreeDataProvider<IssueTreeNode>
 
   getTreeItem(element: IssueTreeNode): vscode.TreeItem {
     if (element.type === 'project') {
-      const item = new vscode.TreeItem(`프로젝트 #${element.projectId}`, vscode.TreeItemCollapsibleState.Expanded);
-      item.description = `${element.issueCount}개`;
-      return item;
+      return new vscode.TreeItem(`${element.owner}/${element.name}`, vscode.TreeItemCollapsibleState.Collapsed);
     }
 
     const item = new vscode.TreeItem(
@@ -52,6 +52,11 @@ export class IssueTreeProvider implements vscode.TreeDataProvider<IssueTreeNode>
       vscode.TreeItemCollapsibleState.None,
     );
     item.description = element.issue.assignee?.name ?? element.issue.authorLoginId;
+    item.command = {
+      command: 'yona.issue.open',
+      title: '이슈 열기',
+      arguments: [element],
+    };
     return item;
   }
 }
