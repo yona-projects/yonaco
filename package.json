@@ -5,6 +5,22 @@
   "version": "0.2.0",
   "publisher": "yonaprojects",
   "private": true,
+  "license": "Apache-2.0",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yona-projects/yonaco.git"
+  },
+  "homepage": "https://github.com/yona-projects/yonaco",
+  "bugs": {
+    "url": "https://github.com/yona-projects/yonaco/issues"
+  },
+  "keywords": [
+    "yona",
+    "issue-tracker",
+    "code-review",
+    "pull-request"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -111,6 +127,7 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "package": "node esbuild.js --production",
+    "vscode:prepublish": "npm run package",
     "lint": "eslint src",
     "pretest": "npm run compile && tsc --noEmit -p ./",
     "test:unit": "mocha --require ts-node/register --extensions ts \"test/unit/**/*.test.ts\"",
@@ -127,6 +144,7 @@
     "@typescript-eslint/parser": "^7.14.0",
     "@vscode/test-cli": "^0.0.15",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.21.5",
     "eslint": "^8.57.0",
     "mocha": "^10.4.0",
