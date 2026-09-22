@@ -64,6 +64,14 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
           return;
         }
 
+        if (req.method === 'GET' && req.url?.endsWith('/comments')) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify([{ id: 500, contents: '이전에 달린 댓글', authorLoginId: 'carol', issueId: 1 }]),
+          );
+          return;
+        }
+
         // GET .../issues?state=open -> 서버가 상태 필터링하는 것과 동일하게, 현재 상태가
         // OPEN일 때만 이슈를 목록에 포함시킨다(닫힌 이슈는 open 목록에서 사라져야 한다).
         const content = issueState === 'OPEN' ? [fakeIssue({ id: 1, number: 1, title: '프로젝트 이슈', body: '본문내용' })] : [];
@@ -152,6 +160,7 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
 
     const panel = exports.issuePanels.getPanel('owner1', 'proj1', 1);
     assert.ok(panel, '이슈 상세 패널이 생성되어야 한다');
+    await panel!.waitUntilLoaded();
     assert.ok(panel!.html.includes('프로젝트 이슈'));
     assert.ok(panel!.html.includes('본문내용'));
 
@@ -163,6 +172,21 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
     assert.ok(panel!.html.includes('테스트 코멘트'));
   });
 
+  it('이슈를 열면 서버에 이미 있던 코멘트 이력을 불러와 함께 보여준다', async () => {
+    const exports = await loginAndRegisterProject();
+    const provider = exports.issueTreeProvider;
+
+    const [projectNode] = await provider.getChildren();
+    const [issueNode] = (await provider.getChildren(projectNode)) as IssueNode[];
+
+    await vscode.commands.executeCommand('yona.issue.open', issueNode);
+    const panel = exports.issuePanels.getPanel('owner1', 'proj1', 1)!;
+    await panel.waitUntilLoaded();
+
+    assert.ok(panel.html.includes('이전에 달린 댓글'), '이전 세션에 이미 달려있던 댓글도 보여야 한다');
+    assert.ok(panel.html.includes('carol'));
+  });
+
   it("상세 웹뷰에서 '완료' 처리하면 POST .../close가 호출되고 트리에서 사라진다, '재오픈'하면 다시 나타난다", async () => {
     const exports = await loginAndRegisterProject();
     const provider = exports.issueTreeProvider;
@@ -171,6 +195,7 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
     const [issueNode] = (await provider.getChildren(projectNode)) as IssueNode[];
     await vscode.commands.executeCommand('yona.issue.open', issueNode);
     const panel = exports.issuePanels.getPanel('owner1', 'proj1', 1)!;
+    await panel.waitUntilLoaded();
 
     await panel.handleMessage({ type: 'closeIssue' });
 

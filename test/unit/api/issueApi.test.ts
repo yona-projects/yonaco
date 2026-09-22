@@ -5,6 +5,7 @@ import {
   closeIssue,
   createIssue,
   getIssue,
+  getIssueComments,
   getMyAssignedIssues,
   getProjectIssues,
   reopenIssue,
@@ -130,6 +131,35 @@ describe('createIssue', () => {
     assert.strictEqual(capturedMethod, 'POST');
     assert.deepStrictEqual(capturedBody, { title: '새 이슈', body: 'src/a.ts:3' });
     assert.strictEqual(issue.title, '새 이슈');
+  });
+});
+
+describe('getIssueComments', () => {
+  it('GET /api/v1/projects/{owner}/{project}/issues/{number}/comments를 호출하고 코멘트 목록을 반환한다', async () => {
+    let capturedUrl: string | undefined;
+    const fetchFn = async (url: string) => {
+      capturedUrl = url;
+      return fakeFetchReturning([
+        { id: 1, contents: '첫 댓글', authorLoginId: 'admin', issueId: 5 },
+        { id: 2, contents: '두번째 댓글', authorLoginId: 'bob', issueId: 5 },
+      ])();
+    };
+    const client = new ApiClient('https://yona.example.com', 'token', fetchFn);
+
+    const comments = await getIssueComments(client, 'owner1', 'proj1', 5);
+
+    assert.strictEqual(capturedUrl, 'https://yona.example.com/api/v1/projects/owner1/proj1/issues/5/comments');
+    assert.strictEqual(comments.length, 2);
+    assert.strictEqual(comments[0].contents, '첫 댓글');
+    assert.strictEqual(comments[1].authorLoginId, 'bob');
+  });
+
+  it('댓글이 없으면 빈 배열을 반환한다', async () => {
+    const client = new ApiClient('https://yona.example.com', 'token', fakeFetchReturning([]));
+
+    const comments = await getIssueComments(client, 'owner1', 'proj1', 5);
+
+    assert.deepStrictEqual(comments, []);
   });
 });
 

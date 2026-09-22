@@ -25,6 +25,12 @@ describe('0.1.5 커밋 메시지 이슈번호 자동완성/링크', () => {
 
       // GET .../issues/12 (단건 조회)는 Issue 객체를 그대로, GET .../issues?state=open
       // (목록 조회)은 Page<Issue> 래퍼로 응답한다 - 실제 서버 응답 형식과 동일하게 구분한다.
+      if (req.url?.endsWith('/12/comments')) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify([]));
+        return;
+      }
+
       if (req.url?.endsWith('/12')) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(issue));
@@ -127,6 +133,7 @@ describe('0.1.5 커밋 메시지 이슈번호 자동완성/링크', () => {
 
     const panel = exports.issuePanels.getPanel('owner1', 'proj1', 12);
     assert.ok(panel, '해당 번호의 이슈 패널이 열려야 한다');
+    await panel!.waitUntilLoaded();
     assert.ok(panel!.html.includes('버그 수정'));
     panel!.dispose();
   });

@@ -52,6 +52,15 @@ export async function reopenIssue(
   return client.postJSON<Issue>(`/api/v1/projects/${owner}/${project}/issues/${number}/reopen`);
 }
 
+export async function getIssueComments(
+  client: ApiClient,
+  owner: string,
+  project: string,
+  number: number,
+): Promise<IssueComment[]> {
+  return client.getJSON<IssueComment[]>(`/api/v1/projects/${owner}/${project}/issues/${number}/comments`);
+}
+
 export async function addIssueComment(
   client: ApiClient,
   owner: string,
