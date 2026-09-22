@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ApiClient } from '../api/client';
 import { addIssueComment, closeIssue, getIssueComments, reopenIssue } from '../api/issueApi';
 import { Issue, IssueComment } from '../api/types';
+import { renderMarkdown } from './markdown';
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -130,7 +131,7 @@ export class IssueDetailPanel {
           <span class="comment-author">${escapeHtml(comment.authorName ?? comment.authorLoginId)}</span>
           <span class="comment-date">${escapeHtml(formatDate(comment.createdDate))}</span>
         </div>
-        <div class="comment-body">${escapeHtml(comment.contents)}</div>
+        <div class="comment-body markdown-body">${renderMarkdown(comment.contents)}</div>
       </div>`,
       )
       .join('');
@@ -152,7 +153,7 @@ export class IssueDetailPanel {
     <span class="state-badge ${isOpen ? 'state-open' : 'state-closed'}">${escapeHtml(this.issue.state)}</span>
   </div>
 
-  <div class="issue-body">${escapeHtml(this.issue.body ?? '')}</div>
+  <div class="issue-body markdown-body">${renderMarkdown(this.issue.body ?? '')}</div>
 
   <div class="actions">${stateButtonHtml}</div>
 
@@ -213,7 +214,6 @@ export class IssueDetailPanel {
     }
 
     .issue-body {
-      white-space: pre-wrap;
       line-height: 1.5;
       padding: 16px 0;
     }
@@ -263,8 +263,62 @@ export class IssueDetailPanel {
 
     .comment-body {
       padding: 12px;
-      white-space: pre-wrap;
       line-height: 1.5;
+    }
+
+    .markdown-body :first-child {
+      margin-top: 0;
+    }
+
+    .markdown-body :last-child {
+      margin-bottom: 0;
+    }
+
+    .markdown-body code {
+      font-family: var(--vscode-editor-font-family, monospace);
+      background-color: var(--vscode-textCodeBlock-background);
+      padding: 0.1em 0.4em;
+      border-radius: 4px;
+    }
+
+    .markdown-body pre {
+      font-family: var(--vscode-editor-font-family, monospace);
+      background-color: var(--vscode-textCodeBlock-background);
+      padding: 10px 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+
+    .markdown-body pre code {
+      padding: 0;
+      background-color: transparent;
+    }
+
+    .markdown-body blockquote {
+      margin: 0;
+      padding: 0 12px;
+      color: var(--vscode-descriptionForeground);
+      border-left: 3px solid var(--vscode-textBlockQuote-border, var(--vscode-panel-border));
+    }
+
+    .markdown-body a {
+      color: var(--vscode-textLink-foreground);
+    }
+
+    .markdown-body a:hover {
+      color: var(--vscode-textLink-activeForeground);
+    }
+
+    .markdown-body ul,
+    .markdown-body ol {
+      padding-left: 1.6em;
+    }
+
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3 {
+      font-size: 1.1em;
+      font-weight: 600;
     }
 
     .comment-form {
