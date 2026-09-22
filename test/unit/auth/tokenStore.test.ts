@@ -58,4 +58,15 @@ describe('TokenStore', () => {
     assert.strictEqual(await tokenStore.getToken('https://a.example.com', 'scoped'), 'token-a');
     assert.strictEqual(await tokenStore.getToken('https://b.example.com', 'scoped'), 'token-b');
   });
+
+  it('hasLegacyToken은 legacy 토큰 존재 여부를 boolean으로 반환한다', async () => {
+    const secrets = new FakeSecretStorage();
+    const tokenStore = new TokenStore(secrets as never);
+
+    assert.strictEqual(await tokenStore.hasLegacyToken('https://yona.example.com'), false);
+
+    await tokenStore.setToken('https://yona.example.com', 'legacy', 'legacy-token');
+
+    assert.strictEqual(await tokenStore.hasLegacyToken('https://yona.example.com'), true);
+  });
 });

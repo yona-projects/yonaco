@@ -17,6 +17,10 @@ export class TokenStore {
     await this.secrets.delete(this.keyFor(serverUrl, kind));
   }
 
+  async hasLegacyToken(serverUrl: string): Promise<boolean> {
+    return (await this.getToken(serverUrl, 'legacy')) !== undefined;
+  }
+
   private keyFor(serverUrl: string, kind: TokenKind): string {
     return `yona.pat.${kind}.${serverUrl}`;
   }
