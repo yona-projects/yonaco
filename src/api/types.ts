@@ -25,3 +25,21 @@ export interface IssueStatusSection {
   closedCount: number;
   items: Issue[];
 }
+
+export interface IssueComment {
+  id: number;
+  contents: string;
+  authorLoginId: string;
+  authorName?: string;
+  createdDate?: string;
+  parentCommentId?: number;
+  issueId: number;
+}
+
+export interface Page<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}

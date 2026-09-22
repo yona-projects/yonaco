@@ -64,6 +64,28 @@ describe('ApiClient', () => {
     await assert.rejects(() => client.getJSON('/api/v1/projects/owner'), ApiError);
   });
 
+  it('postJSON은 POST 메서드와 JSON 바디, Content-Type 헤더를 붙인다', async () => {
+    let capturedInit: RequestInit | undefined;
+    const fetchFn = async (_url: string, init?: RequestInit) => {
+      capturedInit = init;
+      return {
+        status: 201,
+        ok: true,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ id: 1 }),
+        text: async () => '{"id":1}',
+      } as unknown as Response;
+    };
+    const client = new ApiClient('https://yona.example.com', 't', fetchFn);
+
+    const result = await client.postJSON<{ id: number }>('/api/v1/x', { contents: 'hi' });
+
+    assert.strictEqual(capturedInit?.method, 'POST');
+    assert.strictEqual((capturedInit?.headers as Record<string, string>)?.['Content-Type'], 'application/json');
+    assert.strictEqual(capturedInit?.body, JSON.stringify({ contents: 'hi' }));
+    assert.deepStrictEqual(result, { id: 1 });
+  });
+
   it('baseURL 끝의 슬래시는 제거하고 경로를 이어 붙인다', async () => {
     let capturedUrl: string | undefined;
     const fetchFn = async (url: string) => {
