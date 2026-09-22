@@ -38,7 +38,9 @@ export function registerIssueCommands(
         return;
       }
 
-      const panel = new IssueDetailPanel(client, node.owner, node.name, node.issue);
+      const panel = new IssueDetailPanel(client, node.owner, node.name, node.issue, () =>
+        issueTreeProvider.refresh(),
+      );
       panels.set(key, panel);
       panel.onDidDispose(() => panels.delete(key));
     }),

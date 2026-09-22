@@ -25,9 +25,11 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
   let server: http.Server;
   let serverUrl: string;
   let lastRequest: { method?: string; url?: string; body?: unknown } | undefined;
+  let issueState: string;
 
   beforeEach(async () => {
     sandbox = sinon.createSandbox();
+    issueState = 'OPEN';
     server = http.createServer((req, res) => {
       let raw = '';
       req.on('data', (chunk) => (raw += chunk));
@@ -48,11 +50,28 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
           return;
         }
 
+        if (req.method === 'POST' && req.url?.endsWith('/close')) {
+          issueState = 'CLOSED';
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(fakeIssue({ id: 1, number: 1, title: '프로젝트 이슈', body: '본문내용', state: issueState })));
+          return;
+        }
+
+        if (req.method === 'POST' && req.url?.endsWith('/reopen')) {
+          issueState = 'OPEN';
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(fakeIssue({ id: 1, number: 1, title: '프로젝트 이슈', body: '본문내용', state: issueState })));
+          return;
+        }
+
+        // GET .../issues?state=open -> 서버가 상태 필터링하는 것과 동일하게, 현재 상태가
+        // OPEN일 때만 이슈를 목록에 포함시킨다(닫힌 이슈는 open 목록에서 사라져야 한다).
+        const content = issueState === 'OPEN' ? [fakeIssue({ id: 1, number: 1, title: '프로젝트 이슈', body: '본문내용' })] : [];
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
-            content: [fakeIssue({ id: 1, number: 1, title: '프로젝트 이슈', body: '본문내용' })],
-            totalElements: 1,
+            content,
+            totalElements: content.length,
             totalPages: 1,
             number: 0,
             size: 20,
@@ -75,6 +94,13 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
 
   afterEach(async () => {
     sandbox.restore();
+    // 확장은 프로세스 전체 수명 동안 살아있어서, 이전 테스트에서 연 이슈 상세 패널이 이번
+    // 목 서버가 닫힌 뒤에도 남아 다음 테스트가 그 죽은 서버를 가리키는 패널을 재사용하는 문제가
+    // 있었다 - 같은 owner/project/number 조합을 쓰는 모든 테스트가 매번 새 패널로 시작하도록
+    // 정리한다.
+    const extension = vscode.extensions.getExtension('yonaprojects.yonaco');
+    const exports = (await extension?.activate()) as { issuePanels?: { getPanel(o: string, n: string, i: number): { dispose(): void } | undefined } } | undefined;
+    exports?.issuePanels?.getPanel('owner1', 'proj1', 1)?.dispose();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
@@ -135,5 +161,33 @@ describe('0.1.1/0.1.2 이슈 사이드바 + 상세 웹뷰', () => {
     assert.strictEqual(lastRequest?.url, '/api/v1/projects/owner1/proj1/issues/1/comments');
     assert.deepStrictEqual(lastRequest?.body, { contents: '테스트 코멘트' });
     assert.ok(panel!.html.includes('테스트 코멘트'));
+  });
+
+  it("상세 웹뷰에서 '완료' 처리하면 POST .../close가 호출되고 트리에서 사라진다, '재오픈'하면 다시 나타난다", async () => {
+    const exports = await loginAndRegisterProject();
+    const provider = exports.issueTreeProvider;
+
+    const [projectNode] = await provider.getChildren();
+    const [issueNode] = (await provider.getChildren(projectNode)) as IssueNode[];
+    await vscode.commands.executeCommand('yona.issue.open', issueNode);
+    const panel = exports.issuePanels.getPanel('owner1', 'proj1', 1)!;
+
+    await panel.handleMessage({ type: 'closeIssue' });
+
+    assert.strictEqual(lastRequest?.method, 'POST');
+    assert.strictEqual(lastRequest?.url, '/api/v1/projects/owner1/proj1/issues/1/close');
+    assert.ok(panel.html.includes('CLOSED'));
+    assert.ok(panel.html.includes('재오픈'));
+
+    const issuesAfterClose = (await provider.getChildren(projectNode)) as IssueNode[];
+    assert.strictEqual(issuesAfterClose.length, 0);
+
+    await panel.handleMessage({ type: 'reopenIssue' });
+
+    assert.strictEqual(lastRequest?.url, '/api/v1/projects/owner1/proj1/issues/1/reopen');
+    assert.ok(panel.html.includes('OPEN'));
+
+    const issuesAfterReopen = (await provider.getChildren(projectNode)) as IssueNode[];
+    assert.strictEqual(issuesAfterReopen.length, 1);
   });
 });

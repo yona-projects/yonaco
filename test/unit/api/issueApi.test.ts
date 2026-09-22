@@ -1,6 +1,13 @@
 import * as assert from 'assert';
 import { ApiClient } from '../../../src/api/client';
-import { addIssueComment, getIssue, getMyAssignedIssues, getProjectIssues } from '../../../src/api/issueApi';
+import {
+  addIssueComment,
+  closeIssue,
+  getIssue,
+  getMyAssignedIssues,
+  getProjectIssues,
+  reopenIssue,
+} from '../../../src/api/issueApi';
 import { Issue } from '../../../src/api/types';
 
 function fakeIssue(overrides: Partial<Issue>): Issue {
@@ -100,6 +107,41 @@ describe('getIssue', () => {
     assert.strictEqual(capturedUrl, 'https://yona.example.com/api/v1/projects/owner1/proj1/issues/5');
     assert.strictEqual(issue.title, '상세이슈');
     assert.strictEqual(issue.body, '본문');
+  });
+});
+
+describe('closeIssue', () => {
+  it('POST /api/v1/projects/{owner}/{project}/issues/{number}/close를 호출하고 갱신된 이슈를 반환한다', async () => {
+    let capturedUrl: string | undefined;
+    let capturedMethod: string | undefined;
+    const fetchFn = async (url: string, init?: RequestInit) => {
+      capturedUrl = url;
+      capturedMethod = init?.method;
+      return fakeFetchReturning(fakeIssue({ id: 5, number: 5, title: '이슈', state: 'CLOSED' }))();
+    };
+    const client = new ApiClient('https://yona.example.com', 'token', fetchFn);
+
+    const issue = await closeIssue(client, 'owner1', 'proj1', 5);
+
+    assert.strictEqual(capturedUrl, 'https://yona.example.com/api/v1/projects/owner1/proj1/issues/5/close');
+    assert.strictEqual(capturedMethod, 'POST');
+    assert.strictEqual(issue.state, 'CLOSED');
+  });
+});
+
+describe('reopenIssue', () => {
+  it('POST /api/v1/projects/{owner}/{project}/issues/{number}/reopen을 호출하고 갱신된 이슈를 반환한다', async () => {
+    let capturedUrl: string | undefined;
+    const fetchFn = async (url: string) => {
+      capturedUrl = url;
+      return fakeFetchReturning(fakeIssue({ id: 5, number: 5, title: '이슈', state: 'OPEN' }))();
+    };
+    const client = new ApiClient('https://yona.example.com', 'token', fetchFn);
+
+    const issue = await reopenIssue(client, 'owner1', 'proj1', 5);
+
+    assert.strictEqual(capturedUrl, 'https://yona.example.com/api/v1/projects/owner1/proj1/issues/5/reopen');
+    assert.strictEqual(issue.state, 'OPEN');
   });
 });
 

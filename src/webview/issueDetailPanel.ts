@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ApiClient } from '../api/client';
-import { addIssueComment } from '../api/issueApi';
+import { addIssueComment, closeIssue, reopenIssue } from '../api/issueApi';
 import { Issue, IssueComment } from '../api/types';
 
 function escapeHtml(text: string): string {
@@ -10,13 +10,16 @@ function escapeHtml(text: string): string {
 export class IssueDetailPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly comments: IssueComment[] = [];
+  private issue: Issue;
 
   constructor(
     private readonly client: ApiClient,
     private readonly owner: string,
     private readonly project: string,
-    private readonly issue: Issue,
+    issue: Issue,
+    private readonly onIssueChanged?: () => void,
   ) {
+    this.issue = issue;
     this.panel = vscode.window.createWebviewPanel(
       'yonaIssueDetail',
       `#${issue.number} ${issue.title}`,
@@ -29,6 +32,10 @@ export class IssueDetailPanel {
 
   reveal(): void {
     this.panel.reveal();
+  }
+
+  dispose(): void {
+    this.panel.dispose();
   }
 
   onDidDispose(listener: () => void): vscode.Disposable {
@@ -50,6 +57,22 @@ export class IssueDetailPanel {
       );
       this.comments.push(comment);
       this.render();
+      return;
+    }
+
+    if (message.type === 'closeIssue') {
+      this.issue = await closeIssue(this.client, this.owner, this.project, this.issue.number);
+      this.panel.title = `#${this.issue.number} ${this.issue.title}`;
+      this.render();
+      this.onIssueChanged?.();
+      return;
+    }
+
+    if (message.type === 'reopenIssue') {
+      this.issue = await reopenIssue(this.client, this.owner, this.project, this.issue.number);
+      this.panel.title = `#${this.issue.number} ${this.issue.title}`;
+      this.render();
+      this.onIssueChanged?.();
     }
   }
 
@@ -61,11 +84,18 @@ export class IssueDetailPanel {
       )
       .join('');
 
+    const isOpen = this.issue.state === 'OPEN';
+    const stateButtonHtml = isOpen
+      ? '<button id="closeButton">완료</button>'
+      : '<button id="reopenButton">재오픈</button>';
+
     this.panel.webview.html = `<!doctype html>
 <html>
 <body>
   <h2>#${this.issue.number} ${escapeHtml(this.issue.title)}</h2>
+  <p>상태: ${escapeHtml(this.issue.state)}</p>
   <p>${escapeHtml(this.issue.body ?? '')}</p>
+  ${stateButtonHtml}
   <h3>코멘트</h3>
   <ul id="comments">${commentsHtml}</ul>
   <textarea id="commentInput"></textarea>
@@ -77,6 +107,14 @@ export class IssueDetailPanel {
       vscode.postMessage({ type: 'addComment', contents: input.value });
       input.value = '';
     });
+    const closeButton = document.getElementById('closeButton');
+    if (closeButton) {
+      closeButton.addEventListener('click', () => vscode.postMessage({ type: 'closeIssue' }));
+    }
+    const reopenButton = document.getElementById('reopenButton');
+    if (reopenButton) {
+      reopenButton.addEventListener('click', () => vscode.postMessage({ type: 'reopenIssue' }));
+    }
   </script>
 </body>
 </html>`;
