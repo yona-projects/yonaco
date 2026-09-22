@@ -6,6 +6,7 @@ import { createScopedApiClient } from './api/clientFactory';
 import { registerServerCommands } from './commands/serverCommands';
 import { registerIssueCommands, IssuePanelManager } from './commands/issueCommands';
 import { registerProjectCommands } from './commands/projectCommands';
+import { registerCommitMessageProviders } from './scm/commitMessageProvider';
 import { createServerStatusBarItem } from './tree/serverStatusBar';
 import { IssueTreeProvider } from './tree/issueTreeProvider';
 
@@ -37,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Yonaco
   context.subscriptions.push(vscode.window.registerTreeDataProvider('yona.myIssues', issueTreeProvider));
   const issuePanels = registerIssueCommands(context, issueTreeProvider, getClient, projectRegistry);
   registerProjectCommands(context, projectRegistry, issueTreeProvider);
+  registerCommitMessageProviders(context, getClient, projectRegistry);
 
   registerServerCommands(context, serverRegistry, tokenStore, statusBarItem, undefined, () =>
     issueTreeProvider.refresh(),

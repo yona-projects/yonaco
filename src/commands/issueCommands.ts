@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import { ApiClient } from '../api/client';
-import { createIssue } from '../api/issueApi';
+import { createIssue, getIssue } from '../api/issueApi';
+import { ApiError } from '../api/apiError';
 import { ProjectRegistry } from '../config/projectConfig';
 import { Prompter } from '../auth/loginFlow';
 import { promptCreateIssueFromLine } from './issueCreatePrompt';
 import { vscodePrompter } from './serverCommands';
 import { IssueTreeProvider } from '../tree/issueTreeProvider';
 import { IssueNode } from '../tree/issueTreeItem';
+import { Issue } from '../api/types';
 import { IssueDetailPanel } from '../webview/issueDetailPanel';
 
 export interface IssuePanelManager {
@@ -26,6 +28,19 @@ export function registerIssueCommands(
 ): IssuePanelManager {
   const panels = new Map<string, IssueDetailPanel>();
 
+  function openIssuePanel(client: ApiClient, owner: string, name: string, issue: Issue): void {
+    const key = panelKey(owner, name, issue.number);
+    const existing = panels.get(key);
+    if (existing) {
+      existing.reveal();
+      return;
+    }
+
+    const panel = new IssueDetailPanel(client, owner, name, issue, () => issueTreeProvider.refresh());
+    panels.set(key, panel);
+    panel.onDidDispose(() => panels.delete(key));
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand('yona.myIssues.refresh', () => {
       issueTreeProvider.refresh();
@@ -37,19 +52,29 @@ export function registerIssueCommands(
         void vscode.window.showErrorMessage('등록된 서버/토큰이 없습니다.');
         return;
       }
+      openIssuePanel(client, node.owner, node.name, node.issue);
+    }),
 
-      const key = panelKey(node.owner, node.name, node.issue.number);
-      const existing = panels.get(key);
-      if (existing) {
-        existing.reveal();
+    vscode.commands.registerCommand('yona.issue.openByNumber', async (issueNumber: number) => {
+      const client = await getClient();
+      if (!client) {
+        void vscode.window.showErrorMessage('등록된 서버/토큰이 없습니다.');
         return;
       }
 
-      const panel = new IssueDetailPanel(client, node.owner, node.name, node.issue, () =>
-        issueTreeProvider.refresh(),
-      );
-      panels.set(key, panel);
-      panel.onDidDispose(() => panels.delete(key));
+      for (const project of projectRegistry.list()) {
+        try {
+          const issue = await getIssue(client, project.owner, project.name, issueNumber);
+          openIssuePanel(client, project.owner, project.name, issue);
+          return;
+        } catch (err) {
+          if (!(err instanceof ApiError && err.status === 404)) {
+            throw err;
+          }
+        }
+      }
+
+      void vscode.window.showErrorMessage(`등록된 프로젝트에서 #${issueNumber} 이슈를 찾을 수 없습니다.`);
     }),
 
     vscode.commands.registerCommand('yona.issue.createFromLine', async () => {
