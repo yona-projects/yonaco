@@ -26,7 +26,7 @@ export function registerServerCommands(
     }),
 
     vscode.commands.registerCommand('yona.auth.login', async () => {
-      const ok = await promptLogin(prompter, serverRegistry, tokenStore);
+      const ok = await promptLogin(prompter, serverRegistry, tokenStore, 'scoped');
       if (!ok) {
         void vscode.window.showErrorMessage(
           '로그인에 실패했습니다. 먼저 "Yona: 서버 등록"으로 서버를 등록해주세요.',
@@ -34,6 +34,20 @@ export function registerServerCommands(
         return;
       }
       void vscode.window.showInformationMessage('로그인 정보가 저장되었습니다.');
+    }),
+
+    vscode.commands.registerCommand('yona.auth.loginLegacy', async () => {
+      const ok = await promptLogin(prompter, serverRegistry, tokenStore, 'legacy');
+      if (!ok) {
+        void vscode.window.showErrorMessage(
+          '레거시 전권 토큰 등록에 실패했습니다. 먼저 "Yona: 서버 등록"으로 서버를 등록해주세요.',
+        );
+        return;
+      }
+      await vscode.commands.executeCommand('setContext', 'yona.hasLegacyToken', true);
+      void vscode.window.showInformationMessage(
+        '레거시 전권 토큰이 저장되었습니다. 라인 리뷰 코멘트/온라인 커밋/브랜치 관리 기능에 사용됩니다.',
+      );
     }),
 
     vscode.commands.registerCommand('yona.connectionTest', async () => {

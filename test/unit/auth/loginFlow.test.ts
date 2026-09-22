@@ -83,4 +83,18 @@ describe('promptLogin', () => {
 
     assert.strictEqual(ok, false);
   });
+
+  it("kind에 'legacy'를 넘기면 legacy 슬롯에 저장하고 scoped 슬롯은 건드리지 않는다", async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    await registry.add('https://yona.example.com');
+    await registry.setCurrent('https://yona.example.com');
+    const tokenStore = new TokenStore(new FakeSecretStorage() as never);
+
+    const ok = await promptLogin(fakePrompter('legacy-token'), registry, tokenStore, 'legacy');
+
+    assert.strictEqual(ok, true);
+    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'legacy'), 'legacy-token');
+    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'scoped'), undefined);
+  });
 });

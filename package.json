@@ -24,6 +24,10 @@
         "title": "Yona: 로그인 (토큰)"
       },
       {
+        "command": "yona.auth.loginLegacy",
+        "title": "Yona: 레거시 전권 토큰 등록"
+      },
+      {
         "command": "yona.connectionTest",
         "title": "Yona: 연결 테스트"
       }

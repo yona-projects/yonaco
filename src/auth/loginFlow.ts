@@ -1,5 +1,5 @@
 import { ServerRegistry } from '../config/serverConfig';
-import { TokenStore } from './tokenStore';
+import { TokenKind, TokenStore } from './tokenStore';
 
 export interface Prompter {
   askInput(options: { prompt: string; password?: boolean }): Promise<string | undefined>;
@@ -23,10 +23,16 @@ export async function promptAddServer(
   return url;
 }
 
+const PROMPT_BY_KIND: Record<TokenKind, string> = {
+  scoped: '스코프(fine-grained) 토큰을 입력하세요',
+  legacy: '레거시 전권 토큰을 입력하세요 (라인 리뷰 코멘트/온라인 커밋/브랜치 관리에 사용됩니다)',
+};
+
 export async function promptLogin(
   prompter: Prompter,
   serverRegistry: ServerRegistry,
   tokenStore: TokenStore,
+  kind: TokenKind = 'scoped',
 ): Promise<boolean> {
   const serverUrl = serverRegistry.getCurrent();
   if (!serverUrl) {
@@ -34,13 +40,13 @@ export async function promptLogin(
   }
 
   const token = await prompter.askInput({
-    prompt: '스코프(fine-grained) 토큰을 입력하세요',
+    prompt: PROMPT_BY_KIND[kind],
     password: true,
   });
   if (!token) {
     return false;
   }
 
-  await tokenStore.setToken(serverUrl, 'scoped', token);
+  await tokenStore.setToken(serverUrl, kind, token);
   return true;
 }
