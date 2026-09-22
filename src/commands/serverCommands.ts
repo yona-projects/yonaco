@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { ServerRegistry } from '../config/serverConfig';
 import { TokenStore } from '../auth/tokenStore';
 import { Prompter, promptAddServer, promptLogin, promptSwitchServer } from '../auth/loginFlow';
-import { ApiClient } from '../api/client';
 import { ApiError } from '../api/apiError';
+import { createScopedApiClient } from '../api/clientFactory';
 import { refreshServerStatusBarItem } from '../tree/serverStatusBar';
 
 const vscodePrompter: Prompter = {
@@ -21,11 +21,13 @@ export function registerServerCommands(
   tokenStore: TokenStore,
   statusBarItem: vscode.StatusBarItem,
   prompter: Prompter = vscodePrompter,
+  onAuthOrServerChange?: () => void,
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('yona.server.add', async () => {
       const url = await promptAddServer(prompter, serverRegistry);
       refreshServerStatusBarItem(statusBarItem, serverRegistry);
+      onAuthOrServerChange?.();
       if (url) {
         void vscode.window.showInformationMessage(`Yona 서버가 등록되었습니다: ${url}`);
       }
@@ -34,6 +36,7 @@ export function registerServerCommands(
     vscode.commands.registerCommand('yona.server.switch', async () => {
       const picked = await promptSwitchServer(prompter, serverRegistry);
       refreshServerStatusBarItem(statusBarItem, serverRegistry);
+      onAuthOrServerChange?.();
       if (!picked) {
         return;
       }
@@ -48,6 +51,7 @@ export function registerServerCommands(
         );
         return;
       }
+      onAuthOrServerChange?.();
       void vscode.window.showInformationMessage('로그인 정보가 저장되었습니다.');
     }),
 
@@ -66,19 +70,17 @@ export function registerServerCommands(
     }),
 
     vscode.commands.registerCommand('yona.connectionTest', async () => {
-      const serverUrl = serverRegistry.getCurrent();
-      const token = serverUrl ? await tokenStore.getToken(serverUrl, 'scoped') : undefined;
-      if (!serverUrl || !token) {
+      const client = await createScopedApiClient(serverRegistry, tokenStore);
+      if (!client) {
         void vscode.window.showErrorMessage(
           '등록된 서버/토큰이 없습니다. "Yona: 서버 등록"과 "Yona: 로그인"을 먼저 실행하세요.',
         );
         return;
       }
 
-      const client = new ApiClient(serverUrl, token);
       try {
         await client.getJSON('/api/v1/user/status');
-        void vscode.window.showInformationMessage(`연결 성공: ${serverUrl}`);
+        void vscode.window.showInformationMessage(`연결 성공: ${serverRegistry.getCurrent()}`);
       } catch (err) {
         const message = err instanceof ApiError ? `${err.status}: ${err.body}` : String(err);
         void vscode.window.showErrorMessage(`연결 실패: ${message}`);

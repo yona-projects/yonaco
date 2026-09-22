@@ -14,6 +14,23 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "yona",
+          "title": "Yona",
+          "icon": "media/yona.svg"
+        }
+      ]
+    },
+    "views": {
+      "yona": [
+        {
+          "id": "yona.myIssues",
+          "name": "내 이슈"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "yona.server.add",
@@ -34,8 +51,22 @@
       {
         "command": "yona.server.switch",
         "title": "Yona: 서버 전환"
+      },
+      {
+        "command": "yona.myIssues.refresh",
+        "title": "새로고침",
+        "icon": "$(refresh)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "yona.myIssues.refresh",
+          "when": "view == yona.myIssues",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Yona",
       "properties": {
