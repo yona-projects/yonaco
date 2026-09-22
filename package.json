@@ -1,6 +1,6 @@
 {
   "name": "yonaco",
-  "displayName": "Yona",
+  "displayName": "Yona Issue Tracker",
   "description": "Yona issue tracker and code review integration for VS Code",
   "version": "0.2.0",
   "publisher": "yonaprojects",
