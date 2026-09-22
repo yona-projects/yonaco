@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { promptAddServer, promptLogin, Prompter } from '../../../src/auth/loginFlow';
+import { promptAddServer, promptLogin, promptSwitchServer, Prompter } from '../../../src/auth/loginFlow';
 import { ServerRegistry } from '../../../src/config/serverConfig';
 import { TokenStore } from '../../../src/auth/tokenStore';
 
@@ -27,7 +27,11 @@ class FakeSecretStorage {
 }
 
 function fakePrompter(answer: string | undefined): Prompter {
-  return { askInput: async () => answer };
+  return { askInput: async () => answer, askPick: async () => answer };
+}
+
+function fakePickPrompter(pickAnswer: string | undefined): Prompter {
+  return { askInput: async () => undefined, askPick: async () => pickAnswer };
 }
 
 describe('promptAddServer', () => {
@@ -96,5 +100,41 @@ describe('promptLogin', () => {
     assert.strictEqual(ok, true);
     assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'legacy'), 'legacy-token');
     assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'scoped'), undefined);
+  });
+});
+
+describe('promptSwitchServer', () => {
+  it('등록된 서버 목록에서 선택한 서버로 currentServer를 바꾼다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    await registry.add('https://a.example.com');
+    await registry.add('https://b.example.com');
+    await registry.setCurrent('https://a.example.com');
+
+    const picked = await promptSwitchServer(fakePickPrompter('https://b.example.com'), registry);
+
+    assert.strictEqual(picked, 'https://b.example.com');
+    assert.strictEqual(registry.getCurrent(), 'https://b.example.com');
+  });
+
+  it('등록된 서버가 없으면 선택창을 띄우지 않고 undefined를 반환한다', async () => {
+    const registry = new ServerRegistry(() => new FakeWorkspaceConfiguration() as never);
+
+    const picked = await promptSwitchServer(fakePickPrompter('아무값'), registry);
+
+    assert.strictEqual(picked, undefined);
+    assert.strictEqual(registry.getCurrent(), undefined);
+  });
+
+  it('선택을 취소하면(undefined) currentServer를 바꾸지 않는다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    await registry.add('https://a.example.com');
+    await registry.setCurrent('https://a.example.com');
+
+    const picked = await promptSwitchServer(fakePickPrompter(undefined), registry);
+
+    assert.strictEqual(picked, undefined);
+    assert.strictEqual(registry.getCurrent(), 'https://a.example.com');
   });
 });

@@ -2,7 +2,7 @@
   "name": "yonaco",
   "displayName": "Yona",
   "description": "Yona issue tracker and code review integration for VS Code",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "publisher": "yonaprojects",
   "private": true,
   "engines": {
@@ -30,6 +30,10 @@
       {
         "command": "yona.connectionTest",
         "title": "Yona: 연결 테스트"
+      },
+      {
+        "command": "yona.server.switch",
+        "title": "Yona: 서버 전환"
       }
     ],
     "configuration": {

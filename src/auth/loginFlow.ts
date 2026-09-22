@@ -3,6 +3,7 @@ import { TokenKind, TokenStore } from './tokenStore';
 
 export interface Prompter {
   askInput(options: { prompt: string; password?: boolean }): Promise<string | undefined>;
+  askPick(items: string[], placeHolder?: string): Promise<string | undefined>;
 }
 
 export async function promptAddServer(
@@ -49,4 +50,22 @@ export async function promptLogin(
 
   await tokenStore.setToken(serverUrl, kind, token);
   return true;
+}
+
+export async function promptSwitchServer(
+  prompter: Prompter,
+  serverRegistry: ServerRegistry,
+): Promise<string | undefined> {
+  const servers = serverRegistry.list();
+  if (servers.length === 0) {
+    return undefined;
+  }
+
+  const picked = await prompter.askPick(servers, '전환할 Yona 서버를 선택하세요');
+  if (!picked) {
+    return undefined;
+  }
+
+  await serverRegistry.setCurrent(picked);
+  return picked;
 }

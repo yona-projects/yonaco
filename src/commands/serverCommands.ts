@@ -1,13 +1,17 @@
 import * as vscode from 'vscode';
 import { ServerRegistry } from '../config/serverConfig';
 import { TokenStore } from '../auth/tokenStore';
-import { Prompter, promptAddServer, promptLogin } from '../auth/loginFlow';
+import { Prompter, promptAddServer, promptLogin, promptSwitchServer } from '../auth/loginFlow';
 import { ApiClient } from '../api/client';
 import { ApiError } from '../api/apiError';
+import { refreshServerStatusBarItem } from '../tree/serverStatusBar';
 
 const vscodePrompter: Prompter = {
   async askInput({ prompt, password }) {
     return vscode.window.showInputBox({ prompt, password: password ?? false });
+  },
+  async askPick(items, placeHolder) {
+    return vscode.window.showQuickPick(items, { placeHolder });
   },
 };
 
@@ -15,14 +19,25 @@ export function registerServerCommands(
   context: vscode.ExtensionContext,
   serverRegistry: ServerRegistry,
   tokenStore: TokenStore,
+  statusBarItem: vscode.StatusBarItem,
   prompter: Prompter = vscodePrompter,
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('yona.server.add', async () => {
       const url = await promptAddServer(prompter, serverRegistry);
+      refreshServerStatusBarItem(statusBarItem, serverRegistry);
       if (url) {
         void vscode.window.showInformationMessage(`Yona 서버가 등록되었습니다: ${url}`);
       }
+    }),
+
+    vscode.commands.registerCommand('yona.server.switch', async () => {
+      const picked = await promptSwitchServer(prompter, serverRegistry);
+      refreshServerStatusBarItem(statusBarItem, serverRegistry);
+      if (!picked) {
+        return;
+      }
+      void vscode.window.showInformationMessage(`Yona 서버 전환: ${picked}`);
     }),
 
     vscode.commands.registerCommand('yona.auth.login', async () => {
