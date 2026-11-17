@@ -30,22 +30,11 @@ describe('TokenStore', () => {
   it('deleteToken 후에는 getToken이 undefined를 반환한다', async () => {
     const secrets = new FakeSecretStorage();
     const tokenStore = new TokenStore(secrets as never);
-    await tokenStore.setToken('https://yona.example.com', 'legacy', 'zzz');
+    await tokenStore.setToken('https://yona.example.com', 'scoped', 'zzz');
 
-    await tokenStore.deleteToken('https://yona.example.com', 'legacy');
+    await tokenStore.deleteToken('https://yona.example.com', 'scoped');
 
-    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'legacy'), undefined);
-  });
-
-  it('같은 서버라도 scoped와 legacy 토큰은 서로 다른 슬롯에 저장된다', async () => {
-    const secrets = new FakeSecretStorage();
-    const tokenStore = new TokenStore(secrets as never);
-
-    await tokenStore.setToken('https://yona.example.com', 'scoped', 'scoped-token');
-    await tokenStore.setToken('https://yona.example.com', 'legacy', 'legacy-token');
-
-    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'scoped'), 'scoped-token');
-    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'legacy'), 'legacy-token');
+    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'scoped'), undefined);
   });
 
   it('서로 다른 서버 URL은 서로 다른 슬롯에 저장된다', async () => {
@@ -57,16 +46,5 @@ describe('TokenStore', () => {
 
     assert.strictEqual(await tokenStore.getToken('https://a.example.com', 'scoped'), 'token-a');
     assert.strictEqual(await tokenStore.getToken('https://b.example.com', 'scoped'), 'token-b');
-  });
-
-  it('hasLegacyToken은 legacy 토큰 존재 여부를 boolean으로 반환한다', async () => {
-    const secrets = new FakeSecretStorage();
-    const tokenStore = new TokenStore(secrets as never);
-
-    assert.strictEqual(await tokenStore.hasLegacyToken('https://yona.example.com'), false);
-
-    await tokenStore.setToken('https://yona.example.com', 'legacy', 'legacy-token');
-
-    assert.strictEqual(await tokenStore.hasLegacyToken('https://yona.example.com'), true);
   });
 });

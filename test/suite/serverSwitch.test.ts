@@ -60,7 +60,7 @@ describe('0.0.3 서버 전환 UX', () => {
     await vscode.commands.executeCommand('yona.server.add'); // B 등록, current는 그대로 A
     showQuickPick.onCall(0).resolves(serverB.url as never);
     await vscode.commands.executeCommand('yona.server.switch'); // current -> B
-    assert.deepStrictEqual(showQuickPick.firstCall.args[0], [serverA.url, serverB.url]);
+    assert.deepStrictEqual(showQuickPick.firstCall.args[0], [serverA.url, serverB.url, '$(add) 서버 추가...']);
     await vscode.commands.executeCommand('yona.auth.login'); // B에 token-b
 
     await vscode.commands.executeCommand('yona.connectionTest');

@@ -7,8 +7,13 @@ import { createScopedApiClient } from '../api/clientFactory';
 import { refreshServerStatusBarItem } from '../tree/serverStatusBar';
 
 export const vscodePrompter: Prompter = {
-  async askInput({ prompt, password }) {
-    return vscode.window.showInputBox({ prompt, password: password ?? false });
+  async askInput({ prompt, password, validate }) {
+    return vscode.window.showInputBox({
+      prompt,
+      password: password ?? false,
+      validateInput: validate,
+      ignoreFocusOut: true,
+    });
   },
   async askPick(items, placeHolder) {
     return vscode.window.showQuickPick(items, { placeHolder });
@@ -44,29 +49,19 @@ export function registerServerCommands(
     }),
 
     vscode.commands.registerCommand('yona.auth.login', async () => {
-      const ok = await promptLogin(prompter, serverRegistry, tokenStore, 'scoped');
-      if (!ok) {
+      // 서버가 없을 때만 오류이다. 토큰 입력을 취소하거나 비운 경우는 사용자가 그만둔 것이므로 조용히 끝낸다.
+      if (!serverRegistry.getCurrent()) {
         void vscode.window.showErrorMessage(
           '로그인에 실패했습니다. 먼저 "Yona: 서버 등록"으로 서버를 등록해주세요.',
         );
         return;
       }
-      onAuthOrServerChange?.();
-      void vscode.window.showInformationMessage('로그인 정보가 저장되었습니다.');
-    }),
-
-    vscode.commands.registerCommand('yona.auth.loginLegacy', async () => {
-      const ok = await promptLogin(prompter, serverRegistry, tokenStore, 'legacy');
+      const ok = await promptLogin(prompter, serverRegistry, tokenStore, 'scoped');
       if (!ok) {
-        void vscode.window.showErrorMessage(
-          '레거시 전권 토큰 등록에 실패했습니다. 먼저 "Yona: 서버 등록"으로 서버를 등록해주세요.',
-        );
         return;
       }
-      await vscode.commands.executeCommand('setContext', 'yona.hasLegacyToken', true);
-      void vscode.window.showInformationMessage(
-        '레거시 전권 토큰이 저장되었습니다. 라인 리뷰 코멘트/온라인 커밋/브랜치 관리 기능에 사용됩니다.',
-      );
+      onAuthOrServerChange?.();
+      void vscode.window.showInformationMessage('로그인 정보가 저장되었습니다.');
     }),
 
     vscode.commands.registerCommand('yona.connectionTest', async () => {
@@ -79,7 +74,7 @@ export function registerServerCommands(
       }
 
       try {
-        await client.getJSON('/api/v1/user/status');
+        await client.getJSON('/-_-api/v1/user');
         void vscode.window.showInformationMessage(`연결 성공: ${serverRegistry.getCurrent()}`);
       } catch (err) {
         const message = err instanceof ApiError ? `${err.status}: ${err.body}` : String(err);

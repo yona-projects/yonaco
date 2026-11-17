@@ -13,40 +13,43 @@ describe('0.1.5 커밋 메시지 이슈번호 자동완성/링크', () => {
   beforeEach(async () => {
     sandbox = sinon.createSandbox();
     server = http.createServer((req, res) => {
+      const base = '/-_-api/v1/owners/owner1/projects/proj1/issues';
+      const json = (body: unknown) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(body));
+      };
+      if (req.url === `${base}/12/comments`) {
+        json({ result: [] });
+        return;
+      }
+      if (req.url === `${base}/12`) {
+        json({
+          result: {
+            number: 12,
+            id: 1,
+            title: '버그 수정',
+            body: '',
+            state: 'OPEN',
+            author: { loginId: 'admin', name: '관리자', email: 'admin@example.com' },
+            owner: 'owner1',
+            projectName: 'proj1',
+          },
+        });
+        return;
+      }
+      // v2 서버의 목록 항목(issueSummary) 모양이다. 응답은 items 배열을 가진 페이지이다.
       const issue = {
         id: 1,
         number: 12,
         title: '버그 수정',
-        state: 'OPEN',
-        projectId: 1,
-        authorLoginId: 'admin',
+        state: 'open',
+        author: { loginId: 'admin', name: '관리자' },
+        assignees: [],
         numOfComments: 0,
+        url: '/owner1/proj1/issue/12',
       };
 
-      // GET .../issues/12 (단건 조회)는 Issue 객체를 그대로, GET .../issues?state=open
-      // (목록 조회)은 Page<Issue> 래퍼로 응답한다 - 실제 서버 응답 형식과 동일하게 구분한다.
-      if (req.url?.endsWith('/12/comments')) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify([]));
-        return;
-      }
-
-      if (req.url?.endsWith('/12')) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(issue));
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          content: [issue],
-          totalElements: 1,
-          totalPages: 1,
-          number: 0,
-          size: 20,
-        }),
-      );
+      json({ items: [issue], page: 1, pageSize: 15, totalPages: 1, totalCount: 1 });
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();

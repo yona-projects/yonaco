@@ -8,7 +8,6 @@ function fakeIssue(overrides: Partial<Issue>): Issue {
     number: 1,
     title: 'title',
     state: 'OPEN',
-    projectId: 1,
     authorLoginId: 'admin',
     numOfComments: 0,
     ...overrides,

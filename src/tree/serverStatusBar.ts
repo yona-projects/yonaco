@@ -15,5 +15,5 @@ export function refreshServerStatusBarItem(
 ): void {
   const current = serverRegistry.getCurrent();
   item.text = current ? `$(server) ${current}` : '$(server) Yona: 서버 없음';
-  item.tooltip = current ? '클릭해서 Yona 서버 전환' : '클릭해서 Yona 서버 등록';
+  item.tooltip = current ? '클릭해서 Yona 서버를 전환하거나 추가' : '클릭해서 Yona 서버 등록';
 }

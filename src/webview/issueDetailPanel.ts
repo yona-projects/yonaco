@@ -1,7 +1,10 @@
 import * as vscode from 'vscode';
 import { ApiClient } from '../api/client';
-import { addIssueComment, closeIssue, getIssueComments, reopenIssue } from '../api/issueApi';
+import { addIssueComment, closeIssue, getIssue, getIssueComments, reopenIssue } from '../api/issueApi';
 import { Issue, IssueComment } from '../api/types';
+import { issueWebUrl } from '../api/webUrls';
+import { describeDue } from '../api/dueDate';
+import { labelTextColor, safeColor } from './labelColor';
 import { renderMarkdown } from './markdown';
 
 function escapeHtml(text: string): string {
@@ -89,7 +92,29 @@ export class IssueDetailPanel {
     return this.panel.webview.html;
   }
 
+  /** 이슈와 댓글을 서버에서 다시 읽어 화면을 갱신한다. */
+  private async reload(): Promise<void> {
+    this.issue = await getIssue(this.client, this.owner, this.project, this.issue.number);
+    const fresh = await getIssueComments(this.client, this.owner, this.project, this.issue.number);
+    this.comments.splice(0, this.comments.length, ...fresh);
+    this.panel.title = `#${this.issue.number} ${this.issue.title}`;
+    this.render();
+    this.onIssueChanged?.();
+  }
+
   async handleMessage(message: { type: string; contents?: string }): Promise<void> {
+    if (message.type === 'openInBrowser') {
+      await vscode.env.openExternal(
+        vscode.Uri.parse(issueWebUrl(this.client.serverUrl, this.owner, this.project, this.issue.number)),
+      );
+      return;
+    }
+
+    if (message.type === 'refresh') {
+      await this.reload();
+      return;
+    }
+
     if (message.type === 'addComment' && message.contents) {
       const comment = await addIssueComment(
         this.client,
@@ -137,8 +162,33 @@ export class IssueDetailPanel {
       .join('');
 
     const stateButtonHtml = isOpen
-      ? '<button id="closeButton" class="secondary">완료</button>'
-      : '<button id="reopenButton" class="secondary">재오픈</button>';
+      ? '<button id="closeButton" class="secondary" title="이슈를 닫습니다">완료</button>'
+      : '<button id="reopenButton" class="secondary" title="이슈를 다시 엽니다">재오픈</button>';
+
+    const metaParts = [
+      `작성자 ${escapeHtml(this.issue.authorName ?? this.issue.authorLoginId)}`,
+      this.issue.createdDate ? `${escapeHtml(formatDate(this.issue.createdDate))} 작성` : '',
+      `댓글 ${this.comments.length}`,
+    ].filter((part) => part.length > 0);
+
+    const due = describeDue(this.issue.dueDate, this.issue.state);
+    const dueText = due
+      ? `${escapeHtml(due.date)}${due.text ? ` <span class="due-${due.status}">(${escapeHtml(due.text)})</span>` : ''}`
+      : '';
+    const labelsHtml = (this.issue.labels ?? [])
+      .map(
+        (label) =>
+          `<span class="label-chip" style="background-color:${safeColor(label.color)};color:${labelTextColor(label.color)}">${escapeHtml(label.name)}</span>`,
+      )
+      .join(' ');
+    const property = (label: string, value: string) =>
+      `<div class="property"><span class="property-label">${label}</span><span class="property-value">${value || '<span class="empty">없음</span>'}</span></div>`;
+    const propertiesHtml = [
+      property('담당자', this.issue.assignee ? escapeHtml(this.issue.assignee.name) : ''),
+      property('마일스톤', this.issue.milestone ? escapeHtml(this.issue.milestone) : ''),
+      property('기한', dueText),
+      property('라벨', labelsHtml),
+    ].join('');
 
     this.panel.webview.html = `<!doctype html>
 <html lang="ko">
@@ -148,21 +198,34 @@ export class IssueDetailPanel {
 </head>
 <body>
   <div class="issue-header">
-    <span class="issue-number">#${this.issue.number}</span>
-    <h1 class="issue-title">${escapeHtml(this.issue.title)}</h1>
-    <span class="state-badge ${isOpen ? 'state-open' : 'state-closed'}">${escapeHtml(this.issue.state)}</span>
+    <div class="title-block">
+      <div class="title-row">
+        <span class="issue-number">#${this.issue.number}</span>
+        <h1 class="issue-title">${escapeHtml(this.issue.title)}</h1>
+        <span class="state-badge ${isOpen ? 'state-open' : 'state-closed'}">${escapeHtml(this.issue.state)}</span>
+      </div>
+      <div class="issue-meta">${metaParts.join(' · ')}</div>
+    </div>
+    <div class="toolbar">
+      ${stateButtonHtml}
+      <button id="openBrowserButton" class="secondary" title="브라우저에서 이슈 화면을 엽니다">브라우저에서 열기</button>
+      <button id="refreshButton" class="secondary" title="이슈와 코멘트를 다시 읽습니다">새로고침</button>
+    </div>
   </div>
 
-  <div class="issue-body markdown-body">${renderMarkdown(this.issue.body ?? '')}</div>
+  <div class="properties">${propertiesHtml}</div>
 
-  <div class="actions">${stateButtonHtml}</div>
+  <div class="issue-body markdown-body">${renderMarkdown(this.issue.body ?? '') || '<span class="empty">본문이 없습니다.</span>'}</div>
 
-  <h2 class="section-title">코멘트</h2>
-  <div id="comments" class="comments">${commentsHtml}</div>
+  <h2 class="section-title">코멘트 <span class="count">${this.comments.length}</span></h2>
+  <div id="comments" class="comments">${commentsHtml || '<div class="empty">아직 코멘트가 없습니다.</div>'}</div>
 
   <div class="comment-form">
-    <textarea id="commentInput" placeholder="코멘트를 입력하세요..."></textarea>
-    <button id="submitButton">코멘트 작성</button>
+    <textarea id="commentInput" placeholder="코멘트를 입력하세요... (Markdown 사용 가능)"></textarea>
+    <div class="form-row">
+      <span class="hint">Ctrl+Enter로 작성</span>
+      <button id="submitButton" disabled>코멘트 작성</button>
+    </div>
   </div>
 
   <style>
@@ -175,11 +238,115 @@ export class IssueDetailPanel {
 
     .issue-header {
       display: flex;
-      align-items: baseline;
-      gap: 8px;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
       flex-wrap: wrap;
       padding: 16px 0;
       border-bottom: 1px solid var(--vscode-panel-border);
+    }
+
+    .title-block {
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .issue-meta {
+      margin-top: 6px;
+      font-size: 0.9em;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .properties {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 32px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+
+    .property {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 120px;
+    }
+
+    .property-label {
+      font-size: 0.8em;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .property-value {
+      font-weight: 600;
+    }
+
+    .property-value .empty {
+      font-weight: normal;
+    }
+
+    .label-chip {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 999px;
+      font-size: 0.85em;
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .due-overdue {
+      color: var(--vscode-charts-red);
+    }
+
+    .due-today {
+      color: var(--vscode-charts-orange);
+    }
+
+    .due-upcoming {
+      color: var(--vscode-descriptionForeground);
+      font-weight: normal;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .empty {
+      color: var(--vscode-descriptionForeground);
+      font-style: italic;
+    }
+
+    .count {
+      font-weight: normal;
+      padding: 0 6px;
+      border-radius: 999px;
+      background-color: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+    }
+
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hint {
+      font-size: 0.85em;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
     }
 
     .issue-number {
@@ -216,10 +383,6 @@ export class IssueDetailPanel {
     .issue-body {
       line-height: 1.5;
       padding: 16px 0;
-    }
-
-    .actions {
-      padding-bottom: 16px;
     }
 
     .section-title {
@@ -403,11 +566,25 @@ export class IssueDetailPanel {
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    document.getElementById('submitButton').addEventListener('click', () => {
-      const input = document.getElementById('commentInput');
+    const input = document.getElementById('commentInput');
+    const submit = document.getElementById('submitButton');
+    const send = () => {
+      if (input.value.trim().length === 0) {
+        return;
+      }
       vscode.postMessage({ type: 'addComment', contents: input.value });
       input.value = '';
+      submit.disabled = true;
+    };
+    input.addEventListener('input', () => { submit.disabled = input.value.trim().length === 0; });
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        send();
+      }
     });
+    submit.addEventListener('click', send);
+    document.getElementById('openBrowserButton').addEventListener('click', () => vscode.postMessage({ type: 'openInBrowser' }));
+    document.getElementById('refreshButton').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
     const closeButton = document.getElementById('closeButton');
     if (closeButton) {
       closeButton.addEventListener('click', () => vscode.postMessage({ type: 'closeIssue' }));
