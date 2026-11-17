@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { promptAddServer, promptLogin, promptSwitchServer, Prompter } from '../../../src/auth/loginFlow';
+import { ADD_SERVER_ITEM, promptAddServer, promptLogin, promptSwitchServer, Prompter } from '../../../src/auth/loginFlow';
 import { ServerRegistry } from '../../../src/config/serverConfig';
 import { TokenStore } from '../../../src/auth/tokenStore';
 
@@ -87,20 +87,6 @@ describe('promptLogin', () => {
 
     assert.strictEqual(ok, false);
   });
-
-  it("kind에 'legacy'를 넘기면 legacy 슬롯에 저장하고 scoped 슬롯은 건드리지 않는다", async () => {
-    const config = new FakeWorkspaceConfiguration();
-    const registry = new ServerRegistry(() => config as never);
-    await registry.add('https://yona.example.com');
-    await registry.setCurrent('https://yona.example.com');
-    const tokenStore = new TokenStore(new FakeSecretStorage() as never);
-
-    const ok = await promptLogin(fakePrompter('legacy-token'), registry, tokenStore, 'legacy');
-
-    assert.strictEqual(ok, true);
-    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'legacy'), 'legacy-token');
-    assert.strictEqual(await tokenStore.getToken('https://yona.example.com', 'scoped'), undefined);
-  });
 });
 
 describe('promptSwitchServer', () => {
@@ -135,6 +121,94 @@ describe('promptSwitchServer', () => {
     const picked = await promptSwitchServer(fakePickPrompter(undefined), registry);
 
     assert.strictEqual(picked, undefined);
+    assert.strictEqual(registry.getCurrent(), 'https://a.example.com');
+  });
+});
+
+describe('서버 추가 화면(UI) 흐름', () => {
+  function recordingPrompter(inputs: Array<string | undefined>, pick?: string) {
+    const picks: string[][] = [];
+    const validators: Array<((value: string) => string | undefined) | undefined> = [];
+    const prompter: Prompter = {
+      askInput: async (options) => {
+        validators.push(options.validate);
+        return inputs.shift();
+      },
+      askPick: async (items) => {
+        picks.push(items);
+        return pick;
+      },
+    };
+    return { prompter, picks, validators };
+  }
+
+  it('입력한 주소의 앞뒤 공백과 끝의 슬래시를 정리해 등록한다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+
+    const url = await promptAddServer(fakePrompter('  https://yona.example.com/yona/  '), registry);
+
+    assert.strictEqual(url, 'https://yona.example.com/yona');
+    assert.deepStrictEqual(registry.list(), ['https://yona.example.com/yona']);
+  });
+
+  it('http나 https로 시작하지 않는 주소는 등록하지 않는다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+
+    assert.strictEqual(await promptAddServer(fakePrompter('yona.example.com'), registry), undefined);
+    assert.strictEqual(await promptAddServer(fakePrompter('ftp://yona.example.com'), registry), undefined);
+    assert.deepStrictEqual(registry.list(), []);
+  });
+
+  it('입력창에 주소 형식 검사 함수를 넘겨 잘못된 값은 입력 중에 안내한다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    const { prompter, validators } = recordingPrompter(['https://yona.example.com']);
+
+    await promptAddServer(prompter, registry);
+
+    const validate = validators[0];
+    assert.ok(validate, '검사 함수가 전달되어야 한다');
+    assert.ok(validate('yona.example.com'), '형식이 틀리면 안내 문구를 돌려준다');
+    assert.strictEqual(validate('https://yona.example.com'), undefined);
+    assert.strictEqual(validate('http://localhost:9000'), undefined);
+  });
+
+  it('서버 전환 목록의 맨 끝에 "서버 추가..." 항목이 있다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    await registry.add('https://a.example.com');
+    const { prompter, picks } = recordingPrompter([], undefined);
+
+    await promptSwitchServer(prompter, registry);
+
+    assert.deepStrictEqual(picks[0], ['https://a.example.com', ADD_SERVER_ITEM]);
+  });
+
+  it('"서버 추가..."를 고르면 주소를 물어 등록하고 그 서버로 전환한다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    await registry.add('https://a.example.com');
+    await registry.setCurrent('https://a.example.com');
+    const { prompter } = recordingPrompter(['https://b.example.com'], ADD_SERVER_ITEM);
+
+    const picked = await promptSwitchServer(prompter, registry);
+
+    assert.strictEqual(picked, 'https://b.example.com');
+    assert.deepStrictEqual(registry.list(), ['https://a.example.com', 'https://b.example.com']);
+    assert.strictEqual(registry.getCurrent(), 'https://b.example.com');
+  });
+
+  it('등록된 서버가 없을 때 서버 전환을 누르면 선택창 없이 바로 주소를 묻는다', async () => {
+    const config = new FakeWorkspaceConfiguration();
+    const registry = new ServerRegistry(() => config as never);
+    const { prompter, picks } = recordingPrompter(['https://a.example.com']);
+
+    const picked = await promptSwitchServer(prompter, registry);
+
+    assert.strictEqual(picked, 'https://a.example.com');
+    assert.deepStrictEqual(picks, []);
     assert.strictEqual(registry.getCurrent(), 'https://a.example.com');
   });
 });

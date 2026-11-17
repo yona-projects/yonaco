@@ -7,14 +7,16 @@ describe('0.0.1 서버 등록 + 로그인 + 연결 테스트', () => {
   let server: http.Server;
   let serverUrl: string;
   let receivedAuthHeader: string | undefined;
+  let receivedUrl: string | undefined;
   let sandbox: sinon.SinonSandbox;
 
   beforeEach(async () => {
     receivedAuthHeader = undefined;
     server = http.createServer((req, res) => {
       receivedAuthHeader = req.headers['authorization'] as string | undefined;
+      receivedUrl = req.url;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ issues: [], pullRequests: [] }));
+      res.end(JSON.stringify({ loginId: 'admin', name: '관리자', email: 'admin@example.com', siteAdmin: false, scopes: ['repo'] }));
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -50,6 +52,7 @@ describe('0.0.1 서버 등록 + 로그인 + 연결 테스트', () => {
     await vscode.commands.executeCommand('yona.connectionTest');
 
     assert.strictEqual(receivedAuthHeader, 'token secret-scoped-token');
+    assert.strictEqual(receivedUrl, '/-_-api/v1/user');
     assert.ok(
       showInformationMessage.calledWithMatch(sinon.match(/연결 성공/)),
       `성공 메시지가 표시되어야 한다. 실제 호출: ${JSON.stringify(showInformationMessage.args)}`,

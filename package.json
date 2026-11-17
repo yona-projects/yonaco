@@ -49,6 +49,11 @@
     },
     "commands": [
       {
+        "command": "yona.issue.create",
+        "title": "Yona: 새 이슈",
+        "icon": "$(add)"
+      },
+      {
         "command": "yona.server.add",
         "title": "Yona: 서버 등록"
       },
@@ -57,16 +62,13 @@
         "title": "Yona: 로그인 (토큰)"
       },
       {
-        "command": "yona.auth.loginLegacy",
-        "title": "Yona: 레거시 전권 토큰 등록"
-      },
-      {
         "command": "yona.connectionTest",
         "title": "Yona: 연결 테스트"
       },
       {
         "command": "yona.server.switch",
-        "title": "Yona: 서버 전환"
+        "title": "Yona: 서버 전환 / 추가",
+        "icon": "$(server)"
       },
       {
         "command": "yona.myIssues.refresh",
@@ -80,20 +82,77 @@
       {
         "command": "yona.issue.createFromLine",
         "title": "Yona: 이 라인으로 이슈 생성"
+      },
+      {
+        "command": "yona.project.remove",
+        "title": "프로젝트 목록에서 제거",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "yona.openInBrowser",
+        "title": "브라우저에서 열기",
+        "icon": "$(link-external)"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "yona.issue.create",
+          "when": "view == yona.myIssues && yona.hasServer && yona.hasToken && yona.hasProject",
+          "group": "navigation@1"
+        },
+        {
           "command": "yona.myIssues.refresh",
           "when": "view == yona.myIssues",
-          "group": "navigation"
+          "group": "navigation@2"
+        },
+        {
+          "command": "yona.server.switch",
+          "when": "view == yona.myIssues",
+          "group": "navigation@3"
+        },
+        {
+          "command": "yona.project.add",
+          "when": "view == yona.myIssues && yona.hasServer",
+          "group": "1_manage"
         }
       ],
       "editor/context": [
         {
           "command": "yona.issue.createFromLine",
           "group": "yona"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "yona.issue.create",
+          "when": "view == yona.myIssues && viewItem == yona.project",
+          "group": "inline@0"
+        },
+        {
+          "command": "yona.openInBrowser",
+          "when": "view == yona.myIssues && (viewItem == yona.issue || viewItem == yona.project)",
+          "group": "inline@1"
+        },
+        {
+          "command": "yona.project.remove",
+          "when": "view == yona.myIssues && viewItem == yona.project",
+          "group": "inline@2"
+        },
+        {
+          "command": "yona.openInBrowser",
+          "when": "view == yona.myIssues && (viewItem == yona.issue || viewItem == yona.project)",
+          "group": "navigation@1"
+        },
+        {
+          "command": "yona.project.remove",
+          "when": "view == yona.myIssues && viewItem == yona.project",
+          "group": "navigation@2"
+        },
+        {
+          "command": "yona.issue.create",
+          "when": "view == yona.myIssues && viewItem == yona.project",
+          "group": "navigation@0"
         }
       ]
     },
@@ -121,7 +180,24 @@
           "description": "등록된 프로젝트 목록 (\"owner/name\" 형식)"
         }
       }
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "yona.myIssues",
+        "contents": "Yona 서버가 아직 등록되지 않았습니다.\n[서버 등록](command:yona.server.add)",
+        "when": "!yona.hasServer"
+      },
+      {
+        "view": "yona.myIssues",
+        "contents": "서버에 로그인할 토큰이 필요합니다. Yona의 설정 화면에서 개인 액세스 토큰을 만든 뒤 입력하세요.\n[토큰으로 로그인](command:yona.auth.login)\n[다른 서버로 전환 / 추가](command:yona.server.switch)",
+        "when": "yona.hasServer && !yona.hasToken"
+      },
+      {
+        "view": "yona.myIssues",
+        "contents": "표시할 프로젝트를 등록하세요 (owner/name 형식).\n[프로젝트 등록](command:yona.project.add)\n[연결 테스트](command:yona.connectionTest)",
+        "when": "yona.hasServer && yona.hasToken && !yona.hasProject"
+      }
+    ]
   },
   "scripts": {
     "compile": "node esbuild.js",

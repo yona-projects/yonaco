@@ -1,6 +1,8 @@
 import type * as vscode from 'vscode';
 
-export type TokenKind = 'scoped' | 'legacy';
+// Yona v2 서버의 토큰은 한 종류(범위를 가진 개인 액세스 토큰)뿐이다. 저장 키에 종류 이름이 들어 있어
+// 예전에 저장된 토큰이 계속 쓰이도록 이름은 그대로 둔다.
+export type TokenKind = 'scoped';
 
 export class TokenStore {
   constructor(private readonly secrets: vscode.SecretStorage) {}
@@ -15,10 +17,6 @@ export class TokenStore {
 
   async deleteToken(serverUrl: string, kind: TokenKind): Promise<void> {
     await this.secrets.delete(this.keyFor(serverUrl, kind));
-  }
-
-  async hasLegacyToken(serverUrl: string): Promise<boolean> {
-    return (await this.getToken(serverUrl, 'legacy')) !== undefined;
   }
 
   private keyFor(serverUrl: string, kind: TokenKind): string {
